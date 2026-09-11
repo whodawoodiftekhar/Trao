@@ -7,78 +7,8 @@ import {
 } from '@/lib/types';
 
 export class KitBuilderService {
-  private static LOCAL_STORAGE_KEY = 'trao_saved_kits';
-
-  public static async fetchKit(id: string): Promise<UIInterviewPrepKit | null> {
-    try {
-      const serverKit = await api.getKit(id);
-      if (serverKit) {
-        if (typeof window !== 'undefined') {
-          try {
-            const savedStr = localStorage.getItem(this.LOCAL_STORAGE_KEY);
-            let list: UIInterviewPrepKit[] = savedStr ? JSON.parse(savedStr) : [];
-            list = list.filter((k) => k.id !== serverKit.id && (k as any)._id !== serverKit.id);
-            list.unshift(serverKit);
-            localStorage.setItem(this.LOCAL_STORAGE_KEY, JSON.stringify(list));
-          } catch {}
-        }
-        return serverKit;
-      }
-    } catch (err: any) {
-      if (err?.status === 404 || err?.statusCode === 404 || err?.message?.toLowerCase().includes('not found')) {
-        this.removeKitFromCache(id);
-        return null;
-      }
-    }
-
-    if (typeof window !== 'undefined') {
-      const savedStr = localStorage.getItem(this.LOCAL_STORAGE_KEY);
-      if (savedStr) {
-        try {
-          const list: UIInterviewPrepKit[] = JSON.parse(savedStr);
-          const found = list.find((k) => k.id === id || (k as any)._id === id);
-          if (found) return found;
-        } catch {
-          return null;
-        }
-      }
-    }
-
-    return null;
-  }
-
-  public static removeKitFromCache(id: string): void {
-    if (typeof window !== 'undefined') {
-      try {
-        const savedStr = localStorage.getItem(this.LOCAL_STORAGE_KEY);
-        if (savedStr) {
-          const list: UIInterviewPrepKit[] = JSON.parse(savedStr);
-          const filtered = list.filter((k) => k.id !== id && (k as any)._id !== id);
-          localStorage.setItem(this.LOCAL_STORAGE_KEY, JSON.stringify(filtered));
-        }
-        const lastId = localStorage.getItem('trao_last_kit_id');
-        if (lastId === id) {
-          localStorage.removeItem('trao_last_kit_id');
-        }
-      } catch {}
-    }
-  }
-
   public static async persistKit(updatedKit: UIInterviewPrepKit): Promise<void> {
-    if (typeof window !== 'undefined') {
-      const savedStr = localStorage.getItem(this.LOCAL_STORAGE_KEY);
-      let list: UIInterviewPrepKit[] = savedStr ? JSON.parse(savedStr) : [];
-      list = list.filter((k) => k.id !== updatedKit.id);
-      list.unshift(updatedKit);
-      localStorage.setItem(this.LOCAL_STORAGE_KEY, JSON.stringify(list));
-    }
-
-
-    try {
-      await api.saveKit(updatedKit);
-    } catch (err) {
-      console.warn('[KitBuilderService] Database persist warning:', err);
-    }
+    await api.saveKit(updatedKit);
   }
 
   public static async regenerateCompanyBrief(kit: UIInterviewPrepKit): Promise<UIInterviewPrepKit> {

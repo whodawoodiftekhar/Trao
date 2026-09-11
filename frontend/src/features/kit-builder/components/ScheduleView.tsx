@@ -11,13 +11,13 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { UIInterviewPrepKit, UIQuestion } from '@/lib/types';
-import { KitBuilderService } from '../services/kit-builder.service';
 import { cleanRoleTitle, cleanText, formatTime } from '@/lib/utils';
 import { ScheduleTimeline } from './ScheduleTimeline';
 import { InterviewSimulator } from './InterviewSimulator';
 import { ScheduleSkeleton } from '@/components/skeletons/ScheduleSkeleton';
 import { useKitQuery } from '@/lib/queries';
 import { DataNotFoundState } from '@/components/DataNotFoundState';
+import { errorMessage } from '@/lib/utils';
 
 interface ScheduleViewProps {
   kitId: string;
@@ -39,30 +39,9 @@ export function ScheduleView({ kitId }: ScheduleViewProps) {
         localStorage.setItem('trao_last_kit_id', kitId);
         window.dispatchEvent(new CustomEvent('trao_kit_selected', { detail: kitId }));
       }
-    } else if (!isQueryLoading && queryError) {
-      const isNotFound =
-        (queryError as any)?.status === 404 ||
-        (queryError as any)?.statusCode === 404 ||
-        (queryError as any)?.message?.toLowerCase().includes('not found');
-
-      if (isNotFound) {
-        KitBuilderService.removeKitFromCache(kitId);
-        setKit(null);
-        setError('Preparation kit not found. It may have been deleted.');
-        setIsLoading(false);
-      } else {
-        KitBuilderService.fetchKit(kitId).then((local) => {
-          if (local) {
-            setKit(local);
-          } else {
-            setError((queryError as any)?.message || 'Preparation kit not found.');
-          }
-          setIsLoading(false);
-        });
-      }
-    } else if (!isQueryLoading && !serverKit) {
+    } else if (!isQueryLoading && (queryError || !serverKit)) {
       setKit(null);
-      setError('Preparation kit not found.');
+      setError(errorMessage(queryError));
       setIsLoading(false);
     }
   }, [serverKit, isQueryLoading, queryError, kitId]);

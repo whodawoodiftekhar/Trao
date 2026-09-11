@@ -77,3 +77,16 @@ export function formatRequirementId(id?: string): string {
   if (!id) return '';
   return id.trim().toUpperCase();
 }
+
+/**
+ * Turns an unknown thrown value into a message suitable for the UI.
+ * A 401 means the session lapsed, which is fixable by signing in again —
+ * don't report it as a missing kit.
+ */
+export function errorMessage(err: unknown): string {
+  const status = (err as { status?: number })?.status;
+  if (status === 401) return 'Your session has expired. Please sign in again.';
+  if (status === 404) return 'Prep kit not found. It may have been deleted.';
+  const message = (err as { message?: string })?.message;
+  return message || 'Prep kit not found.';
+}

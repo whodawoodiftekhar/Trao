@@ -59,6 +59,14 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       } catch {
         errorData = { message: res.statusText };
       }
+      // The session is gone server-side; drop the local copy so the app stops
+      // rendering as signed-in and the auth guard can redirect to /login.
+      if (res.status === 401 && endpoint !== '/auth/login' && endpoint !== '/auth/register') {
+        clearAuthToken();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('trao_session_expired'));
+        }
+      }
       throw new ApiError(errorData.message || 'API request failed', res.status, errorData);
     }
 
@@ -102,17 +110,24 @@ export const api = {
     });
   },
 
-  async forgotPassword(email: string): Promise<{ success: boolean; message: string; resetLink?: string; email?: string }> {
+  async forgotPassword(email: string): Promise<{ success: boolean; message: string; email: string; expiresInMinutes: number }> {
     return request('/auth/forgot-password', {
       method: 'POST',
       body: JSON.stringify({ email })
     });
   },
 
-  async resetPassword(token: string, password: string): Promise<{ success: boolean; message: string }> {
+  async verifyResetOtp(email: string, otp: string): Promise<{ success: boolean; message: string }> {
+    return request('/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp })
+    });
+  },
+
+  async resetPassword(email: string, otp: string, password: string): Promise<{ success: boolean; message: string }> {
     return request('/auth/reset-password', {
       method: 'POST',
-      body: JSON.stringify({ token, password })
+      body: JSON.stringify({ email, otp, password })
     });
   },
 

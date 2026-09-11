@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { UIFlashcard, UIInterviewPrepKit } from '@/lib/types';
 import { PracticeService } from '../services/practice.service';
 import { useKitQuery } from '@/lib/queries';
+import { errorMessage } from '@/lib/utils';
 
 export function usePractice(kitId: string) {
   const { data: serverKit, isLoading: isQueryLoading, error: queryError } = useKitQuery(kitId);
@@ -25,19 +26,10 @@ export function usePractice(kitId: string) {
         setCards([]);
       }
       setIsLoading(false);
-    } else if (!isQueryLoading && queryError) {
-      PracticeService.fetchKitForPractice(kitId).then((found) => {
-        if (found) {
-          setKit(found);
-          if (found.flashcards) {
-            setCards(PracticeService.sortFlashcardsForPractice(found.flashcards));
-          }
-        } else {
-          setError((queryError as any)?.message || 'Prep kit not found.');
-        }
-        setIsLoading(false);
-      });
-    } else if (!isQueryLoading && !serverKit) {
+    } else if (!isQueryLoading && (queryError || !serverKit)) {
+      setKit(null);
+      setCards([]);
+      if (queryError) setError(errorMessage(queryError));
       setIsLoading(false);
     }
   }, [serverKit, isQueryLoading, queryError, kitId]);

@@ -3,8 +3,6 @@ import { GenerationProgress, UIInterviewPrepKit } from '@/lib/types';
 import { INewKitFormData } from '../interfaces/new-kit.interface';
 
 export class NewKitService {
-  private static LOCAL_STORAGE_KEY = 'trao_saved_kits';
-
   public static async generatePrepKit(
     formData: INewKitFormData,
     onProgress: (p: GenerationProgress) => void
@@ -17,14 +15,6 @@ export class NewKitService {
       },
       onProgress
     );
-
-
-    if (typeof window !== 'undefined') {
-      const existingStr = localStorage.getItem(this.LOCAL_STORAGE_KEY);
-      const existing: UIInterviewPrepKit[] = existingStr ? JSON.parse(existingStr) : [];
-      existing.unshift(completedKit);
-      localStorage.setItem(this.LOCAL_STORAGE_KEY, JSON.stringify(existing));
-    }
 
     return completedKit;
   }

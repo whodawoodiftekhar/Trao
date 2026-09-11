@@ -158,12 +158,6 @@ export function Login() {
                 <label className="block text-xs font-semibold text-slate-700">
                   Password <span className="text-rose-500">*</span>
                 </label>
-                <Link
-                  href={email.trim() ? `/forgot-password?email=${encodeURIComponent(email.trim())}` : '/forgot-password'}
-                  className="text-xs font-medium text-brand-600 hover:text-brand-700 hover:underline cursor-pointer"
-                >
-                  Forgot password?
-                </Link>
               </div>
               <InputField
                 isPassword

@@ -3,53 +3,130 @@
 @tailwind utilities;
 
 :root {
-  --paper: #FAF7F0;
+  --canvas: #F6F6F9;
   --surface: #FFFFFF;
-  --ink: #2E2D2C;
-  --muted: #6E7274;
-  --accent: #5B21B6;
-  --accent-soft: #F5F3FF;
-  --rule: #E6E6E6;
-  --rule-hard: #D6D7D8;
-  --background: #F9F9F9;
-  --foreground: #2E2D2C;
+  --sunken: #EFEFF4;
+  --ink: #17161C;
+  --muted: #6E6E80;
+  --hairline: #E4E4EC;
+  --brand: #6D28D9;
+  --signal: #059669;
+
+  /* Reserved so a fixed header and the sidebar can't drift apart. */
+  --header-h: 3.5rem;
+  --rail-w: 3.5rem;
+  --rail-w-open: 15rem;
 }
 
-html {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    /* Sticky headers must not hide the target of an in-page jump. */
+    scroll-padding-top: calc(var(--header-h) + 1rem);
+  }
+
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    /* Long role titles and URLs must never widen the page on a phone. */
+    overflow-wrap: break-word;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display), var(--font-sans), system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* One visible, consistent focus ring everywhere — keyboard users get a real affordance. */
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* Numbers in tables and stats shouldn't jitter as they change. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-  font-size: 15px;
-  line-height: 1.5;
+@layer components {
+  /* Page title block: sits on the canvas, not inside a card. */
+  .page-head {
+    @apply flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between;
+  }
+
+  .page-title {
+    @apply font-display text-2xl sm:text-3xl text-ink;
+  }
+
+  .page-sub {
+    @apply mt-1.5 text-base text-muted max-w-prose;
+  }
+
+  /* Horizontal scroller for tables/diagrams that genuinely can't stack. */
+  .scroll-x {
+    @apply overflow-x-auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #D6D7D8 transparent;
+  scrollbar-color: #D2D2DE transparent;
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   border-radius: 9999px;
-  background: #D6D7D8;
+  background: #D2D2DE;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #9CA0A3;
+  background: #9B9BAB;
+  background-clip: content-box;
+}
+
+::selection {
+  background: #DDD6FE;
+  color: #2E1065;
 }
 
 nextjs-portal,
 [data-nextjs-dev-indicator] {
   display: none !important;
+}
+
+@media print {
+  .print\:hidden { display: none !important; }
+}
+
+/* Respect the OS setting rather than animating regardless. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

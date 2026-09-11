@@ -2,151 +2,146 @@
 
 import React from 'react';
 import Link from 'next/link';
-import {
-  Building2,
-  BookOpen,
-  ArrowRight,
-  Trash2,
-  Calendar,
-  ShieldCheck
-} from 'lucide-react';
+import { Building2, BookOpen, Trash2, ArrowRight } from 'lucide-react';
 import { UIInterviewPrepKit } from '@/lib/types';
-import { cleanText, cleanRoleTitle } from '@/lib/utils';
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  Badge,
-  Button
-} from '@/shared/components';
+import { cleanRoleTitle, cleanText } from '@/lib/utils';
+import { Meter } from '@/shared/components/Card';
+import { KitCard, rememberKit } from './KitCard';
 
 interface IKitTableProps {
   kits: UIInterviewPrepKit[];
   onDelete: (id: string, e: React.MouseEvent) => void;
 }
 
+function coverageOf(kit: UIInterviewPrepKit) {
+  const mustHaves = (kit.role?.requirements || []).filter((r) => r.priority === 'must');
+  const uncovered = new Set(kit.coverage?.uncovered_requirement_ids || []);
+  return {
+    total: mustHaves.length,
+    covered: mustHaves.filter((r) => !uncovered.has(r.id)).length,
+  };
+}
+
 export function KitTable({ kits, onDelete }: IKitTableProps) {
   return (
-    <Table className="overflow-hidden">
-      <TableHeader>
-        <tr>
-          <TableHead align="center">Role & Company</TableHead>
-          <TableHead align="center" className="hidden md:table-cell">Breakdown</TableHead>
-          <TableHead align="center" className="hidden lg:table-cell">Date Researched</TableHead>
-          <TableHead align="center" className="hidden sm:table-cell">Coverage</TableHead>
-          <TableHead align="center">Actions</TableHead>
-        </tr>
-      </TableHeader>
-      <TableBody>
-        {kits.map((kit) => {
-          const kitId = kit.id || kit._id || '';
-          const dateStr = kit.source?.researched_at
-            ? new Date(kit.source.researched_at).toLocaleDateString(undefined, {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              })
-            : 'Recent';
+    <>
+      {/* A five-column table is unreadable on a phone, so below `md` the same
+          rows render as the card layout rather than scrolling sideways. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:hidden">
+        {kits.map((kit) => (
+          <KitCard key={kit.id || kit._id} kit={kit} onDelete={onDelete} />
+        ))}
+      </div>
 
-          const cleanTitle = cleanRoleTitle(kit.role?.title, 'Target Role');
-          const cleanCompany = cleanText(kit.source?.company, 'Company');
+      <div className="hidden overflow-hidden rounded-2xl border border-hairline bg-surface shadow-card md:block">
+        <table className="w-full border-collapse text-left">
+          <caption className="sr-only">Your interview preparation kits</caption>
+          <thead>
+            <tr className="border-b border-hairline bg-canvas">
+              <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted">Role</th>
+              <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted">Must-have coverage</th>
+              <th scope="col" className="px-4 py-3 text-xs font-semibold text-muted">Questions</th>
+              <th scope="col" className="hidden px-4 py-3 text-xs font-semibold text-muted lg:table-cell">Plan</th>
+              <th scope="col" className="hidden px-4 py-3 text-xs font-semibold text-muted xl:table-cell">Researched</th>
+              <th scope="col" className="px-4 py-3 text-right text-xs font-semibold text-muted">
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
 
-          return (
-            <TableRow
-              key={kitId || cleanTitle}
-              isStriped
-              className="hover:bg-brand-50/50 transition-colors group"
-            >
+          <tbody className="divide-y divide-hairline">
+            {kits.map((kit) => {
+              const kitId = kit.id || kit._id || '';
+              const title = cleanRoleTitle(kit.role?.title, 'Target Role');
+              const company = cleanText(kit.source?.company, 'Company');
+              const { total, covered } = coverageOf(kit);
+              const days = kit.schedule?.days_available || 0;
+              const dateStr = kit.source?.researched_at
+                ? new Date(kit.source.researched_at).toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })
+                : '—';
 
-              <TableCell align="center">
-                <div className="flex items-center justify-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center shrink-0 border border-brand-200/80 shadow-2xs group-hover:scale-105 transition-transform">
-                    <Building2 className="w-4.5 h-4.5" />
-                  </div>
-                  <div className="flex flex-col text-left min-w-0">
-                    <Link
-                      href={`/kit/${kitId}`}
-                      title={cleanTitle}
-                      className="font-bold text-sm text-slate-900 hover:text-brand-600 hover:underline transition-colors truncate max-w-[200px] sm:max-w-[280px] lg:max-w-[360px]"
-                    >
-                      {cleanTitle}
-                    </Link>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-brand-700 truncate mt-0.5">
-                      {cleanCompany}
-                    </span>
-                  </div>
-                </div>
-              </TableCell>
+              return (
+                <tr key={kitId || title} className="group transition-colors hover:bg-canvas">
+                  <td className="px-4 py-3.5">
+                    <div className="flex items-center gap-3">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-brand-200/70 bg-brand-50 text-brand-700">
+                        <Building2 className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0">
+                        <Link
+                          href={`/kit/${kitId}`}
+                          onClick={() => rememberKit(kitId)}
+                          title={title}
+                          className="block max-w-[16rem] truncate text-base font-semibold text-ink transition-colors hover:text-brand-700 lg:max-w-[22rem]"
+                        >
+                          {title}
+                        </Link>
+                        <span className="block truncate text-sm text-muted">{company}</span>
+                      </span>
+                    </div>
+                  </td>
 
+                  <td className="w-48 px-4 py-3.5">
+                    {total > 0 ? (
+                      <Meter value={covered} max={total} label={`${covered}/${total}`} />
+                    ) : (
+                      <span className="text-sm text-muted">—</span>
+                    )}
+                  </td>
 
-              <TableCell align="center" className="hidden md:table-cell">
-                <Badge tone="brand" icon={<Calendar className="w-3.5 h-3.5" />}>
-                  {kit.schedule?.days_available || 1}D Plan
-                </Badge>
-              </TableCell>
+                  <td className="tabular px-4 py-3.5 text-base font-semibold text-ink">
+                    {kit.questions?.length || 0}
+                  </td>
 
+                  <td className="tabular hidden px-4 py-3.5 text-sm text-muted lg:table-cell">
+                    {days ? `${days} days` : '—'}
+                  </td>
 
-              <TableCell align="center" className="hidden lg:table-cell">
-                <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 font-medium whitespace-nowrap">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{dateStr}</span>
-                </div>
-              </TableCell>
+                  <td className="tabular hidden whitespace-nowrap px-4 py-3.5 text-sm text-muted xl:table-cell">
+                    {dateStr}
+                  </td>
 
+                  <td className="px-4 py-3.5">
+                    <div className="flex items-center justify-end gap-1">
+                      <Link
+                        href={`/kit/${kitId}/practice`}
+                        onClick={() => rememberKit(kitId)}
+                        title={`Practice ${title} flashcards`}
+                        aria-label={`Practice ${title} flashcards`}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-brand-50 hover:text-brand-700"
+                      >
+                        <BookOpen className="h-4 w-4" />
+                      </Link>
 
-              <TableCell align="center" className="hidden sm:table-cell">
-                <Badge tone="success" icon={<ShieldCheck className="w-3.5 h-3.5" />}>
-                  Verified Kit
-                </Badge>
-              </TableCell>
+                      <button
+                        onClick={(e) => onDelete(kitId, e)}
+                        title={`Delete ${title} kit`}
+                        aria-label={`Delete ${title} kit`}
+                        className="inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
 
-
-              <TableCell align="center">
-                <div className="flex items-center justify-center gap-2 whitespace-nowrap">
-                  <Link
-                    href={`/kit/${kitId}/practice`}
-                    onClick={() => {
-                      if (typeof window !== 'undefined') {
-                        localStorage.setItem('trao_last_kit_id', kitId);
-                        window.dispatchEvent(new CustomEvent('trao_kit_selected', { detail: kitId }));
-                      }
-                    }}
-                    title="Practice Flashcards"
-                    className="p-1.5 rounded-lg text-slate-500 hover:text-brand-600 hover:bg-brand-50 border border-transparent transition-colors cursor-pointer"
-                  >
-                    <BookOpen className="w-4 h-4" />
-                  </Link>
-
-                  <Link
-                    href={`/kit/${kitId}`}
-                    onClick={() => {
-                      if (typeof window !== 'undefined') {
-                        localStorage.setItem('trao_last_kit_id', kitId);
-                        window.dispatchEvent(new CustomEvent('trao_kit_selected', { detail: kitId }));
-                      }
-                    }}
-                  >
-                    <Button size="xs" variant="primary" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
-                      Open
-                    </Button>
-                  </Link>
-
-                  <button
-                    onClick={(e) => onDelete(kitId, e)}
-                    title="Delete kit"
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+                      <Link
+                        href={`/kit/${kitId}`}
+                        onClick={() => rememberKit(kitId)}
+                        className="ml-1 inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-ink"
+                      >
+                        Open
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }

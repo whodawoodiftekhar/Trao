@@ -67,30 +67,25 @@ export function DashboardView() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
 
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <span className="h-5 w-1.5 rounded-full bg-brand-800 shrink-0" />
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-brand-900">
-              Interview Preparation Kits
-            </h1>
-          </div>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1 pl-4.5">
-            Personalized role guides, categorized questions, and day-by-day study schedules
+      <header className="page-head">
+        <div className="min-w-0">
+          <h1 className="page-title">Your prep kits</h1>
+          <p className="page-sub">
+            Each kit turns one job posting into requirements, questions and a day-by-day plan.
           </p>
         </div>
 
-        <Link href="/new">
-          <Button variant="primary" size="md" leftIcon={<Plus className="w-4 h-4" />}>
-            Create New Kit
+        <Link href="/new" className="shrink-0">
+          <Button variant="primary" size="md" leftIcon={<Plus className="h-4 w-4" />}>
+            New prep kit
           </Button>
         </Link>
-      </div>
+      </header>
 
       {error && (
-        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-sm text-red-700">
+        <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
           {error}
         </div>
       )}
@@ -98,76 +93,71 @@ export function DashboardView() {
       {kits.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-5">
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-card">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
-            <div className="w-full sm:w-80 md:w-96 shrink-0">
+            <div className="w-full sm:max-w-sm">
               <InputField
-                placeholder="Search role, company, skills..."
+                placeholder="Search role, company or skill"
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                leftIcon={<Search className="w-4 h-4" />}
+                leftIcon={<Search className="h-4 w-4" />}
                 clearable
                 onClear={() => handleSearchChange('')}
                 inputSize="sm"
+                aria-label="Search prep kits"
               />
             </div>
 
+            <div className="flex items-center gap-3 sm:shrink-0">
+              <p className="tabular text-sm text-muted" aria-live="polite">
+                {totalKits} {totalKits === 1 ? 'kit' : 'kits'}
+              </p>
 
-            <div className="flex items-center gap-2 justify-end shrink-0">
-              <button
-                onClick={() => setViewMode('table')}
-                title="Table View"
-                className={`flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === 'table'
-                    ? 'border-brand-800 bg-brand-800 text-white shadow-xs'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-brand-500 hover:text-brand-800'
-                }`}
+              <div
+                role="group"
+                aria-label="View mode"
+                className="inline-flex rounded-xl border border-hairline bg-surface p-0.5"
               >
-                <Table2 className="w-3.5 h-3.5" />
-                <span>Table</span>
-              </button>
-              <button
-                onClick={() => setViewMode('grid')}
-                title="Grid View"
-                className={`flex h-8 items-center gap-1.5 rounded-full border px-3.5 text-xs font-bold transition-all cursor-pointer ${
-                  viewMode === 'grid'
-                    ? 'border-brand-800 bg-brand-800 text-white shadow-xs'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-brand-500 hover:text-brand-800'
-                }`}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                <span>Grid</span>
-              </button>
+                {([
+                  { mode: 'table' as const, Icon: Table2, label: 'Table' },
+                  { mode: 'grid' as const, Icon: LayoutGrid, label: 'Grid' }
+                ]).map(({ mode, Icon, label }) => (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    aria-pressed={viewMode === mode}
+                    title={`${label} view`}
+                    className={`inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-[10px] px-3 text-sm font-semibold transition ${
+                      viewMode === mode ? 'bg-ink text-white' : 'text-slate-500 hover:text-ink'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    <span className="hidden sm:inline">{label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-
           {filteredKits.length === 0 ? (
-            <div className="p-12 text-center bg-white rounded-2xl border border-dashed border-slate-300 shadow-card">
-              <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
-                <FolderSearch className="w-6 h-6" />
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-surface px-6 py-14 text-center">
+              <div className="mx-auto mb-3 grid h-11 w-11 place-items-center rounded-full bg-sunken text-slate-400">
+                <FolderSearch className="h-5 w-5" />
               </div>
-              <h3 className="text-sm sm:text-base font-bold text-slate-900">
-                No matching preparation kits
-              </h3>
-              <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                We couldn&apos;t find any kits matching &ldquo;{searchQuery}&rdquo;. Try another keyword or clear the search.
+              <h2 className="font-display text-lg text-ink">No kits match that search</h2>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-muted">
+                Nothing found for &ldquo;{searchQuery}&rdquo;. Try a different role, company or skill.
               </p>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4"
-                onClick={() => handleSearchChange('')}
-              >
-                Clear Search Filter
+              <Button variant="secondary" size="sm" className="mt-5" onClick={() => handleSearchChange('')}>
+                Clear search
               </Button>
             </div>
           ) : viewMode === 'table' ? (
             <KitTable kits={paginatedKits} onDelete={handleDelete} />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {paginatedKits.map((kit) => (
                 <KitCard key={kit.id} kit={kit} onDelete={handleDelete} />
               ))}

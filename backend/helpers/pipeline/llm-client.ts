@@ -21,12 +21,17 @@ export class LlmClient {
 
   constructor() {
     this.modelName = config.geminiModel || 'gemini-3.5-flash-lite';
+    // Ordered newest-first, then older generations as fallbacks. Keep this a
+    // superset: model availability changes over time and per API key, and a
+    // name that is missing today may be the only one that works tomorrow.
+    // `-latest` sits last as a catch-all that tracks whatever Google ships.
     this.candidateModels = Array.from(new Set([
       this.modelName,
       'gemini-3.5-flash-lite',
       'gemini-3.1-flash-lite',
-      'gemini-flash-lite-latest',
-      'gemini-2.5-flash-lite'
+      'gemini-2.5-flash-lite',
+      'gemini-2.5-flash',
+      'gemini-flash-lite-latest'
     ])).filter(Boolean);
 
     this.apiKeys = config.geminiApiKeys && config.geminiApiKeys.length > 0
@@ -68,6 +73,7 @@ export class LlmClient {
   public async completeJson<T>(userPrompt: string, options: LlmCompletionOptions = {}): Promise<T> {
     const maxRetries = options.maxRetries ?? Math.max(5, this.candidateModels.length * Math.max(1, this.genAIClients.length));
     let delay = 1500;
+    let lastError: any = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       const activeModel = this.candidateModels[(attempt - 1) % this.candidateModels.length] || this.modelName;
@@ -77,7 +83,9 @@ export class LlmClient {
         await this.enforceRatePace();
 
         if (!client) {
-          throw new Error('NO_API_KEY');
+          throw new Error(
+            'No Gemini API key configured. Set GEMINI_API_KEY (or GEMINI_API_KEYS) in backend/.env.'
+          );
         }
 
         const model = client.getGenerativeModel(
@@ -97,6 +105,7 @@ export class LlmClient {
 
         return this.cleanAndParseJson<T>(text);
       } catch (err: any) {
+        lastError = err;
         const isModelNotFound =
           err.status === 404 ||
           err.message?.includes('404') ||
@@ -149,7 +158,10 @@ export class LlmClient {
       }
     }
 
-    throw new Error(`LLM call failed after ${maxRetries} retries`);
+    throw new Error(
+      `LLM call failed after ${maxRetries} attempts across models [${this.candidateModels.join(', ')}]` +
+        (lastError?.message ? `. Last error: ${lastError.message}` : '')
+    );
   }
 
   private cleanAndParseJson<T>(rawText: string): T {

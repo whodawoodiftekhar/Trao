@@ -43,41 +43,41 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const baseStyles =
-      'inline-flex items-center justify-center select-none font-medium whitespace-nowrap ' +
-      'transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ' +
-      'disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none cursor-pointer';
+      'inline-flex items-center justify-center select-none font-semibold whitespace-nowrap ' +
+      'transition-[background-color,border-color,color,transform,box-shadow] duration-200 outline-none ' +
+      'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 ' +
+      'disabled:opacity-45 disabled:cursor-not-allowed disabled:pointer-events-none cursor-pointer ' +
+      'motion-reduce:active:scale-100';
 
+    // Solid fills, not gradients — a gradient on every button is decoration and
+    // flattens the hierarchy it is supposed to express.
     const variantStyles: Record<ButtonVariant, string> = {
       primary:
-        'bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 ' +
-        'text-white shadow-sm shadow-brand-500/20 active:scale-[0.98] border border-transparent',
+        'bg-brand-700 hover:bg-brand-800 text-white border border-transparent shadow-xs active:scale-[0.98]',
       secondary:
-        'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 ' +
-        'shadow-xs active:scale-[0.98]',
+        'bg-surface hover:bg-slate-50 text-slate-700 border border-hairline hover:border-slate-300 shadow-2xs active:scale-[0.98]',
       outline:
-        'bg-transparent hover:bg-brand-50/60 text-brand-700 border border-brand-200 hover:border-brand-300 ' +
-        'active:scale-[0.98]',
+        'bg-transparent hover:bg-brand-50 text-brand-700 border border-brand-200 hover:border-brand-300 active:scale-[0.98]',
       ghost:
-        'bg-transparent hover:bg-slate-100/80 text-slate-600 hover:text-slate-900 active:scale-[0.98]',
+        'bg-transparent hover:bg-slate-100 text-slate-600 hover:text-ink border border-transparent active:scale-[0.98]',
       danger:
-        'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-700 hover:to-red-700 ' +
-        'text-white shadow-sm shadow-rose-500/20 active:scale-[0.98] border border-transparent',
+        'bg-rose-600 hover:bg-rose-700 text-white border border-transparent shadow-xs active:scale-[0.98]',
       success:
-        'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 ' +
-        'text-white shadow-sm shadow-emerald-500/20 active:scale-[0.98] border border-transparent',
+        'bg-signal-600 hover:bg-signal-700 text-white border border-transparent shadow-xs active:scale-[0.98]',
       'subtle-success':
-        'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100/80 active:scale-[0.98]',
+        'bg-signal-50 text-signal-700 border border-signal-200 hover:bg-signal-100 active:scale-[0.98]',
       'subtle-danger':
-        'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100/80 active:scale-[0.98]',
+        'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 active:scale-[0.98]',
     };
 
+    // Comfortable hit areas: nothing interactive below 32px, primary actions at 40px+.
     const sizeStyles: Record<ButtonSize, string> = {
-      xs: 'h-7 px-2.5 text-xs font-semibold rounded-lg gap-1.5',
-      sm: 'h-8 px-3 text-xs font-semibold rounded-lg gap-1.5',
-      md: 'h-10 px-4 text-sm font-semibold rounded-xl gap-2',
-      lg: 'h-11 px-5 text-sm sm:text-base font-bold rounded-xl gap-2.5',
-      icon: 'w-9 h-9 p-0 rounded-xl justify-center shrink-0',
-      'icon-sm': 'w-8 h-8 p-0 rounded-lg justify-center shrink-0',
+      xs: 'h-8 px-2.5 text-xs rounded-lg gap-1.5',
+      sm: 'h-9 px-3.5 text-sm rounded-lg gap-1.5',
+      md: 'h-10 px-4 text-base rounded-xl gap-2',
+      lg: 'h-12 px-5 text-base rounded-xl gap-2.5',
+      icon: 'w-10 h-10 p-0 rounded-xl justify-center shrink-0',
+      'icon-sm': 'w-9 h-9 p-0 rounded-lg justify-center shrink-0',
     };
 
     return (

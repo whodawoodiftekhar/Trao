@@ -2,88 +2,109 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { BookOpen, ArrowRight, Trash2, Calendar, Target } from 'lucide-react';
+import { Trash2, ArrowRight, BookOpen, Calendar, Target } from 'lucide-react';
+import { Card, Meter } from '@/shared/components/Card';
+import { Button } from '@/shared/components';
+import { cleanRoleTitle, cleanText } from '@/lib/utils';
 import { IKitCardProps } from '../interfaces/dashboard.interface';
-import { cleanText, cleanRoleTitle } from '@/lib/utils';
-import { Card, Badge, Button } from '@/shared/components';
+
+/** Remember which kit the user last opened so the sidebar follows them. */
+export function rememberKit(kitId: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('trao_last_kit_id', kitId);
+    window.dispatchEvent(new CustomEvent('trao_kit_selected', { detail: kitId }));
+  } catch {}
+}
 
 export function KitCard({ kit, onDelete }: IKitCardProps) {
   const kitId = kit.id || (kit as any)._id || '';
-  const mustHavesCount = kit.role?.requirements?.filter((r) => r.priority === 'must').length || 0;
-  const cleanTitle = cleanRoleTitle(kit.role?.title, 'Role');
-  const cleanCompany = cleanText(kit.source?.company, 'Company');
+  const requirements = kit.role?.requirements || [];
+  const mustHaves = requirements.filter((r) => r.priority === 'must');
+  const uncovered = new Set(kit.coverage?.uncovered_requirement_ids || []);
+  const coveredMustHaves = mustHaves.filter((r) => !uncovered.has(r.id)).length;
+
+  const questionCount = kit.questions?.length || 0;
+  const days = kit.schedule?.days_available || 0;
+  const title = cleanRoleTitle(kit.role?.title, 'Role');
+  const company = cleanText(kit.source?.company, 'Company');
 
   return (
-    <Card hoverable className="flex flex-col justify-between p-5 min-w-0">
-      <div className="min-w-0">
-        <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100 min-w-0">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <span className="h-4 w-1 rounded-full bg-brand-800 shrink-0" />
-            <div className="min-w-0 flex-1">
-              <span className="block text-[11px] font-bold uppercase tracking-wider text-brand-700 truncate">
-                {cleanCompany}
-              </span>
-              <h3
-                title={cleanTitle}
-                className="text-base font-bold text-slate-900 hover:text-brand-600 transition-colors truncate mt-0.5"
-              >
-                {cleanTitle}
-              </h3>
-            </div>
-          </div>
-
-          <button
-            onClick={(e) => onDelete(kitId, e)}
-            title="Delete kit"
-            className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition-colors shrink-0 cursor-pointer"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-
-        <p className="mt-3 text-xs sm:text-sm text-slate-600 line-clamp-2 leading-relaxed">
-          {kit.company_brief?.summary || 'Comprehensive role requirements and question coverage.'}
-        </p>
-
-        <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap gap-1.5 text-xs">
-          <Badge tone="neutral">
-            {kit.questions?.length || 0} Questions
-          </Badge>
-          <Badge tone="success" icon={<Target className="w-3 h-3" />}>
-            {mustHavesCount} Must-Haves
-          </Badge>
-          <Badge tone="brand" icon={<Calendar className="w-3 h-3" />}>
-            {kit.schedule?.days_available || 1}D Plan
-          </Badge>
-        </div>
-      </div>
-
-      <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between gap-3 min-w-0">
-        <Link
-          href={`/kit/${kitId}/practice`}
-          onClick={() => {
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('trao_last_kit_id', kitId);
-              window.dispatchEvent(new CustomEvent('trao_kit_selected', { detail: kitId }));
-            }
-          }}
-          className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-brand-700 transition-colors shrink-0"
-        >
-          <BookOpen className="w-4 h-4 text-slate-400" />
-          <span>Practice Cards</span>
-        </Link>
-
+    <Card hoverable className="group flex min-w-0 flex-col">
+      <div className="flex items-start justify-between gap-3 p-4 sm:p-5">
         <Link
           href={`/kit/${kitId}`}
-          onClick={() => {
-            if (typeof window !== 'undefined') {
-              localStorage.setItem('trao_last_kit_id', kitId);
-              window.dispatchEvent(new CustomEvent('trao_kit_selected', { detail: kitId }));
-            }
-          }}
+          onClick={() => rememberKit(kitId)}
+          className="min-w-0 flex-1"
         >
-          <Button size="xs" variant="primary" rightIcon={<ArrowRight className="w-3.5 h-3.5" />}>
-            Open Kit
+          <p className="truncate text-sm font-medium text-muted">{company}</p>
+          <h3
+            title={title}
+            className="mt-0.5 font-display text-lg leading-snug text-ink transition-colors group-hover:text-brand-700 line-clamp-2"
+          >
+            {title}
+          </h3>
+        </Link>
+
+        <button
+          onClick={(e) => onDelete(kitId, e)}
+          title={`Delete ${title} kit`}
+          aria-label={`Delete ${title} kit`}
+          className="-mr-1 -mt-1 inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-slate-300 transition hover:bg-rose-50 hover:text-rose-600 focus-visible:text-rose-600"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="px-4 pb-4 sm:px-5">
+        <p className="line-clamp-2 text-sm leading-relaxed text-muted">
+          {kit.company_brief?.summary || 'Role requirements, questions and a day-by-day plan.'}
+        </p>
+      </div>
+
+      {/* Readiness is the point of the product, so it gets measured, not badged. */}
+      {mustHaves.length > 0 && (
+        <div className="px-4 pb-4 sm:px-5">
+          <Meter
+            value={coveredMustHaves}
+            max={mustHaves.length}
+            label={`${coveredMustHaves} of ${mustHaves.length} must-haves covered`}
+          />
+        </div>
+      )}
+
+      <dl className="mt-auto grid grid-cols-3 divide-x divide-hairline border-t border-hairline text-center">
+        <div className="px-2 py-3">
+          <dt className="text-2xs text-muted">Questions</dt>
+          <dd className="tabular mt-0.5 font-display text-lg text-ink">{questionCount}</dd>
+        </div>
+        <div className="px-2 py-3">
+          <dt className="flex items-center justify-center gap-1 text-2xs text-muted">
+            <Target className="h-3 w-3" /> Must-haves
+          </dt>
+          <dd className="tabular mt-0.5 font-display text-lg text-ink">{mustHaves.length}</dd>
+        </div>
+        <div className="px-2 py-3">
+          <dt className="flex items-center justify-center gap-1 text-2xs text-muted">
+            <Calendar className="h-3 w-3" /> Days
+          </dt>
+          <dd className="tabular mt-0.5 font-display text-lg text-ink">{days || '—'}</dd>
+        </div>
+      </dl>
+
+      <div className="flex items-center justify-between gap-3 border-t border-hairline p-3 sm:px-5">
+        <Link
+          href={`/kit/${kitId}/practice`}
+          onClick={() => rememberKit(kitId)}
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-ink"
+        >
+          <BookOpen className="h-4 w-4 text-slate-400" />
+          Practice
+        </Link>
+
+        <Link href={`/kit/${kitId}`} onClick={() => rememberKit(kitId)}>
+          <Button size="sm" variant="primary" rightIcon={<ArrowRight className="h-3.5 w-3.5" />}>
+            Open kit
           </Button>
         </Link>
       </div>

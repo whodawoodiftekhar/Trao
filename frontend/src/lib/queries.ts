@@ -7,7 +7,12 @@ import {
   UICompanyBrief,
   QuestionCategory
 } from './types';
-import { purgeKitFromAllCaches } from './cache-cleanup';
+
+interface KitSchedulePayload {
+  days: unknown[];
+  days_available: number;
+}
+import { purgeKit } from './query-client';
 
 export const queryKeys = {
   kits: ['kits'] as const,
@@ -39,11 +44,8 @@ export function useDeleteKitMutation() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (kitId: string) => api.deleteKit(kitId),
-    onMutate: async (kitId: string) => {
-      purgeKitFromAllCaches(kitId, queryClient);
-    },
     onSuccess: (_, kitId) => {
-      purgeKitFromAllCaches(kitId, queryClient);
+      purgeKit(kitId, queryClient);
     },
   });
 }
@@ -76,21 +78,21 @@ export function useQuestionMutations(kitId: string) {
   const queryClient = useQueryClient();
 
   const addQuestion = useMutation({
-    mutationFn: (newQ: UIQuestion) => api.addQuestion ? api.addQuestion(kitId, newQ) : Promise.resolve(newQ),
+    mutationFn: (newQ: UIQuestion) => api.addQuestion(kitId, newQ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.kit(kitId) });
     },
   });
 
   const updateQuestion = useMutation({
-    mutationFn: (q: UIQuestion) => api.updateQuestion ? api.updateQuestion(kitId, q) : Promise.resolve(q),
+    mutationFn: (q: UIQuestion) => api.updateQuestion(kitId, q),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.kit(kitId) });
     },
   });
 
   const deleteQuestion = useMutation({
-    mutationFn: (qId: string) => api.deleteQuestion ? api.deleteQuestion(kitId, qId) : Promise.resolve({ success: true }),
+    mutationFn: (qId: string) => api.deleteQuestion(kitId, qId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.kit(kitId) });
     },
@@ -103,7 +105,7 @@ export function useQuestionMutations(kitId: string) {
 export function useUpdateScheduleMutation(kitId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (schedule: any) => api.saveSchedule ? api.saveSchedule(kitId, schedule) : Promise.resolve(schedule),
+    mutationFn: (schedule: KitSchedulePayload) => api.saveSchedule(kitId, schedule),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.kit(kitId) });
     },

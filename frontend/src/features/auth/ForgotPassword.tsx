@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Mail,
   AlertCircle,
@@ -12,95 +12,149 @@ import {
   KeyRound,
   ShieldCheck,
   RotateCcw,
-  Clock
+  Clock,
+  Lock
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { InputField, Button } from '@/shared/components';
 
+const OTP_LENGTH = 6;
+const RESEND_COOLDOWN_SECONDS = 45;
+const MIN_PASSWORD_LENGTH = 6;
+
+type Step = 'email' | 'otp' | 'password' | 'done';
+
+const STEP_ORDER: Step[] = ['email', 'otp', 'password'];
+
 export function ForgotPassword() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialEmail = searchParams ? searchParams.get('email') || '' : '';
 
+  const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState(initialEmail);
-  const [isLoading, setIsLoading] = useState(!!initialEmail);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [successData, setSuccessData] = useState<{ message: string; email?: string } | null>(null);
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const autoSubmitted = useRef(false);
+  const [otp, setOtp] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  const otpInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (initialEmail && !autoSubmitted.current) {
-      autoSubmitted.current = true;
-      const timer = setTimeout(() => {
-        handleSubmitAuto(initialEmail);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [initialEmail]);
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
-  const handleSubmitAuto = async (emailToSend: string) => {
-    setErrorMessage(null);
-    setIsLoading(true);
-    try {
-      const res = await api.forgotPassword(emailToSend.trim());
-      setSuccessData(res);
-      setResendCooldown(60);
-      const interval = setInterval(() => {
-        setResendCooldown((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Unable to process reset request. Please check the email entered.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  useEffect(() => {
+    if (step === 'otp') otpInputRef.current?.focus();
+  }, [step]);
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setErrorMessage(null);
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
 
-    if (!email.trim()) {
-      setErrorMessage('Please enter your registered email address.');
+  /** Step 1 — does this account exist? If so the server emails a code. */
+  const requestCode = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
+      setErrorMessage('Please enter your email address.');
       return;
     }
 
     setIsLoading(true);
+    setErrorMessage(null);
+    setNoticeMessage(null);
     try {
-      const res = await api.forgotPassword(email.trim());
-      setSuccessData(res);
-      setResendCooldown(60);
-      const interval = setInterval(() => {
-        setResendCooldown((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } catch (err: any) {
-      setErrorMessage(err?.message || 'Unable to process reset request. Please check the email entered.');
+      const res = await api.forgotPassword(cleanEmail);
+      setEmail(res.email || cleanEmail);
+      setOtp('');
+      setStep('otp');
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+      setNoticeMessage(res.message);
+    } catch (err) {
+      setErrorMessage((err as Error).message || 'Could not send the reset code. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const resendCode = async () => {
+    if (resendCooldown > 0 || isLoading) return;
+    setOtp('');
+    await requestCode();
+  };
+
+  /** Step 2 — check the code before showing the password fields. */
+  const verifyCode = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (otp.length !== OTP_LENGTH) {
+      setErrorMessage(`Please enter the ${OTP_LENGTH}-digit code from your email.`);
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage(null);
+    setNoticeMessage(null);
+    try {
+      await api.verifyResetOtp(email, otp);
+      setStep('password');
+    } catch (err) {
+      setErrorMessage((err as Error).message || 'Incorrect code. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /** Step 3 — set the new password. The server re-checks the code. */
+  const submitNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      setErrorMessage(`Password must be at least ${MIN_PASSWORD_LENGTH} characters long.`);
+      return;
+    }
+    if (!passwordsMatch) {
+      setErrorMessage('Passwords do not match.');
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      await api.resetPassword(email, otp, password);
+      setStep('done');
+    } catch (err) {
+      const message = (err as Error).message || 'Could not reset your password.';
+      setErrorMessage(message);
+      // A burned or expired code means starting over, not retyping the password.
+      if (/expired|request a new|too many/i.test(message)) {
+        setStep('otp');
+        setOtp('');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const goBack = () => {
+    setErrorMessage(null);
+    setNoticeMessage(null);
+    if (step === 'otp') setStep('email');
+    else if (step === 'password') setStep('otp');
+  };
+
+  const stepIndex = STEP_ORDER.indexOf(step);
+
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex flex-col lg:flex-row">
 
-      <div className="hidden lg:flex lg:w-[45%] relative bg-gradient-to-br from-slate-900 via-brand-950 to-slate-900 flex-col justify-between p-10 overflow-hidden">
-
+      <div className="relative w-full lg:w-[45%] bg-slate-900 p-8 sm:p-12 flex flex-col justify-between overflow-hidden min-h-[240px] lg:min-h-screen">
         <div className="absolute top-[-120px] left-[-80px] w-[400px] h-[400px] bg-gradient-to-br from-brand-500/20 to-teal-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-[-100px] right-[-60px] w-[350px] h-[350px] bg-gradient-to-tr from-brand-600/15 to-purple-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute top-1/2 left-1/3 w-[250px] h-[250px] bg-teal-500/8 rounded-full blur-3xl pointer-events-none" />
-
 
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-6">
@@ -117,7 +171,6 @@ export function ForgotPassword() {
           </p>
         </div>
 
-
         <div className="relative z-10 space-y-5">
           <div className="space-y-4">
             <div className="flex items-start gap-3">
@@ -125,8 +178,8 @@ export function ForgotPassword() {
                 <Clock className="w-4 h-4 text-teal-400" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">Link valid for 1 hour</p>
-                <p className="text-xs text-slate-400 mt-0.5">Reset links expire automatically for your security.</p>
+                <p className="text-sm font-semibold text-white">Code valid for 10 minutes</p>
+                <p className="text-xs text-slate-400 mt-0.5">Reset codes expire automatically for your security.</p>
               </div>
             </div>
 
@@ -135,8 +188,8 @@ export function ForgotPassword() {
                 <ShieldCheck className="w-4 h-4 text-teal-400" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">Encrypted password reset</p>
-                <p className="text-xs text-slate-400 mt-0.5">End-to-end encryption keeps your credentials safe.</p>
+                <p className="text-sm font-semibold text-white">One-time verification code</p>
+                <p className="text-xs text-slate-400 mt-0.5">Never share your code — Trao staff will never ask for it.</p>
               </div>
             </div>
           </div>
@@ -149,7 +202,6 @@ export function ForgotPassword() {
         </div>
       </div>
 
-
       <div className="w-full lg:w-[55%] flex items-center justify-center bg-white p-6 sm:p-10">
         <div className="w-full max-w-md">
 
@@ -160,166 +212,234 @@ export function ForgotPassword() {
             <span className="text-lg font-bold text-slate-900 tracking-tight">Trao</span>
           </div>
 
-          {successData ? (
-            <div className="space-y-5">
-              <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-50 via-white to-teal-50 border border-brand-200/70 flex items-center justify-center shadow-sm">
-                <Mail className="w-8 h-8 text-brand-600" />
-                <div className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-teal-500 text-white flex items-center justify-center border-2 border-white shadow-2xs">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                </div>
+          {step === 'done' ? (
+            <div className="space-y-6">
+              <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-50 via-white to-brand-50 border border-teal-200/70 flex items-center justify-center shadow-sm">
+                <CheckCircle2 className="w-8 h-8 text-teal-600" />
               </div>
 
               <div>
-                <h2 className="text-2xl font-bold text-slate-900 tracking-tight">
-                  Check Your Email
-                </h2>
+                <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Password changed</h2>
                 <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">
-                  We&apos;ve dispatched a secure password reset link to:
+                  Your password has been updated. You can now sign in with your new password.
                 </p>
-
-                <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-semibold text-sm max-w-full truncate">
-                  <Mail className="w-4 h-4 text-brand-600 shrink-0" />
-                  <span className="truncate">{successData.email || email}</span>
-                </div>
               </div>
 
-
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 text-left space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">
-                    1
-                  </div>
-                  <p className="text-sm text-slate-600 leading-relaxed">
-                    Open your email inbox and look for the message from <span className="font-semibold text-slate-800">Trao</span>.
-                  </p>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="w-5 h-5 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold">
-                    2
-                  </div>
-                  <p className="text-sm text-slate-600 leading-relaxed">
-                    Click the <strong className="text-slate-800 font-semibold">&ldquo;Reset My Password&rdquo;</strong> button inside to set a new password.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2.5 pt-2.5 border-t border-slate-200/60 text-xs text-slate-500 font-medium">
-                  <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <span>Link valid for <strong className="text-slate-700">1 hour</strong> for security.</span>
-                </div>
-              </div>
-
-
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Didn&apos;t receive the email? Check your spam/junk folder, or click below to resend.
-              </p>
-
-
-              <div className="space-y-3">
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  fullWidth
-                  onClick={() => handleSubmit()}
-                  disabled={isLoading || resendCooldown > 0}
-                  isLoading={isLoading}
-                  leftIcon={<RotateCcw className="w-4 h-4" />}
-                >
-                  {resendCooldown > 0
-                    ? `Resend in ${resendCooldown}s`
-                    : 'Resend Reset Email'}
-                </Button>
-
-                <Link
-                  href="/login"
-                  className="inline-flex items-center justify-center gap-1.5 w-full h-10 px-4 rounded-xl text-sm font-semibold text-slate-500 hover:text-slate-900 transition-colors"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  <span>Back to Sign In</span>
-                </Link>
-              </div>
+              <Button fullWidth size="lg" onClick={() => router.push('/login')}>
+                Go to Sign In
+                <ArrowRight className="w-4 h-4" />
+              </Button>
             </div>
           ) : (
-            /* Request Form View */
-            <div>
-              {initialEmail && isLoading && !errorMessage ? (
-                <div className="text-center py-8 space-y-4">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-brand-50 to-brand-100 border border-brand-200/50 mx-auto flex items-center justify-center">
-                    <div className="w-6 h-6 border-3 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900 tracking-tight">
-                      Sending Reset Link...
-                    </h2>
-                    <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">
-                      We&apos;re sending a password reset link to:
-                    </p>
-                    <div className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-semibold text-sm">
-                      <Mail className="w-4 h-4 text-brand-600 shrink-0" />
-                      <span className="truncate">{initialEmail}</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
+            <>
+              <div className="flex items-center gap-2 mb-6" aria-hidden="true">
+                {STEP_ORDER.map((s, i) => (
+                  <div
+                    key={s}
+                    className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
+                      i <= stepIndex ? 'bg-brand-600' : 'bg-slate-200'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {step === 'email' && (
                 <>
-                  <div className="mb-6">
-                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-                      Forgot Password?
-                    </h1>
-                    <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">
-                      Enter your registered email address and we&apos;ll send you a secure link to reset your password.
-                    </p>
-                  </div>
+                  <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Forgot your password?</h2>
+                  <p className="text-sm text-slate-500 mt-1.5 mb-6 leading-relaxed">
+                    Enter the email address on your Trao account and we&apos;ll send you a {OTP_LENGTH}-digit verification code.
+                  </p>
 
-                  {errorMessage && (
-                    <div className="mb-4 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center gap-2.5">
-                      <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
-                      <div className="flex-1 font-medium">{errorMessage}</div>
-                    </div>
-                  )}
-
-                  <form onSubmit={handleSubmit} className="space-y-4">
+                  <form onSubmit={requestCode} className="space-y-4">
                     <InputField
-                      label="Registered Email Address"
-                      required
+                      label="Email address"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="name@company.com"
+                      placeholder="you@example.com"
                       autoComplete="email"
+                      autoFocus
+                      leftIcon={<Mail className="w-4 h-4" />}
                       disabled={isLoading}
-                      leftIcon={<Mail className="w-4 h-4 text-slate-400" />}
-                      inputSize="md"
+                      fullWidth
                     />
+
+                    {errorMessage && <ErrorBanner message={errorMessage} />}
+
+                    <Button type="submit" fullWidth size="lg" isLoading={isLoading}>
+                      Send verification code
+                      <ArrowRight className="w-4 h-4" />
+                    </Button>
+                  </form>
+                </>
+              )}
+
+              {step === 'otp' && (
+                <>
+                  <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Enter your code</h2>
+                  <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">
+                    We sent a {OTP_LENGTH}-digit code to
+                  </p>
+                  <div className="mt-3 mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-50 border border-slate-200 text-slate-800 font-semibold text-sm max-w-full">
+                    <Mail className="w-4 h-4 text-brand-600 shrink-0" />
+                    <span className="truncate">{email}</span>
+                  </div>
+
+                  <form onSubmit={verifyCode} className="space-y-4">
+                    <InputField
+                      ref={otpInputRef}
+                      label="Verification code"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      value={otp}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, '').slice(0, OTP_LENGTH);
+                        setOtp(digits);
+                        if (errorMessage) setErrorMessage(null);
+                      }}
+                      placeholder="123456"
+                      maxLength={OTP_LENGTH}
+                      disabled={isLoading}
+                      fullWidth
+                      className="text-center text-2xl font-bold tracking-[0.5em]"
+                    />
+
+                    {noticeMessage && !errorMessage && (
+                      <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 shrink-0" />
+                        {noticeMessage}
+                      </p>
+                    )}
+
+                    {errorMessage && <ErrorBanner message={errorMessage} />}
 
                     <Button
                       type="submit"
-                      variant="primary"
-                      size="lg"
                       fullWidth
-                      disabled={isLoading}
+                      size="lg"
                       isLoading={isLoading}
-                      rightIcon={<ArrowRight className="w-4 h-4" />}
+                      disabled={otp.length !== OTP_LENGTH}
                     >
-                      Send Reset Password Link
+                      Verify code
+                      <ArrowRight className="w-4 h-4" />
                     </Button>
-                  </form>
 
-                  <div className="mt-6 text-center">
-                    <Link
-                      href="/login"
-                      className="inline-flex items-center gap-1.5 text-sm text-brand-600 font-semibold hover:text-brand-700 transition-colors"
-                    >
-                      <ArrowLeft className="w-4 h-4" />
-                      <span>Back to Sign In</span>
-                    </Link>
-                  </div>
+                    <div className="flex items-center justify-between gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={goBack}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                        Change email
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={resendCode}
+                        disabled={resendCooldown > 0 || isLoading}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-600 hover:text-brand-700 disabled:text-slate-400 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend code'}
+                      </button>
+                    </div>
+                  </form>
                 </>
               )}
-            </div>
+
+              {step === 'password' && (
+                <>
+                  <div className="flex items-center gap-2 text-teal-700 bg-teal-50 border border-teal-200/70 rounded-xl px-3 py-2 mb-5 text-xs font-semibold">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    Code verified
+                  </div>
+
+                  <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Set a new password</h2>
+                  <p className="text-sm text-slate-500 mt-1.5 mb-6 leading-relaxed">
+                    Choose a new password for <span className="font-semibold text-slate-700">{email}</span>.
+                  </p>
+
+                  <form onSubmit={submitNewPassword} className="space-y-4">
+                    <InputField
+                      label="New password"
+                      isPassword
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+                      autoComplete="new-password"
+                      autoFocus
+                      leftIcon={<Lock className="w-4 h-4" />}
+                      disabled={isLoading}
+                      fullWidth
+                    />
+
+                    <InputField
+                      label="Confirm new password"
+                      isPassword
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Match password"
+                      autoComplete="new-password"
+                      leftIcon={<Lock className="w-4 h-4" />}
+                      disabled={isLoading}
+                      fullWidth
+                      error={
+                        confirmPassword.length > 0 && !passwordsMatch
+                          ? 'Passwords do not match'
+                          : null
+                      }
+                    />
+
+                    {errorMessage && <ErrorBanner message={errorMessage} />}
+
+                    <Button
+                      type="submit"
+                      fullWidth
+                      size="lg"
+                      isLoading={isLoading}
+                      disabled={password.length < MIN_PASSWORD_LENGTH || !passwordsMatch}
+                    >
+                      Change password
+                      <ArrowRight className="w-4 h-4" />
+                    </Button>
+
+                    <button
+                      type="button"
+                      onClick={goBack}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      Back to code
+                    </button>
+                  </form>
+                </>
+              )}
+
+              <p className="text-sm text-slate-500 text-center mt-8">
+                Remembered your password?{' '}
+                <Link href="/login" className="font-semibold text-brand-600 hover:text-brand-700 transition-colors">
+                  Sign in
+                </Link>
+              </p>
+            </>
           )}
         </div>
       </div>
     </div>
   );
 }
+
+function ErrorBanner({ message }: { message: string }) {
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-2.5 p-3 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-700"
+    >
+      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+      <p className="text-xs font-medium leading-relaxed">{message}</p>
+    </div>
+  );
+}
+
+export default ForgotPassword;

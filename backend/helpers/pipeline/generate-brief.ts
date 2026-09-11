@@ -37,6 +37,8 @@ ${research.publicDiscussion || 'No public interview discussion available.'}
 
 Discovered Sources: ${JSON.stringify(research.pagesUsed)}`;
 
+  let primaryError: any = null;
+
   try {
     const brief = await llm.completeJson<CompanyBrief>(userPrompt, {
       systemPrompt,
@@ -51,7 +53,8 @@ Discovered Sources: ${JSON.stringify(research.pagesUsed)}`;
       };
     }
   } catch (err: any) {
-    console.warn('[generateCompanyBrief] Primary brief generation notice:', err?.message || err);
+    primaryError = err;
+    console.warn('[generateCompanyBrief] Primary brief generation failed:', err?.message || err);
   }
 
   // Dynamic secondary AI prompt with simpler context
@@ -72,9 +75,13 @@ Respond ONLY with valid JSON: { "summary": string, "what_they_do": string, "sour
         sources: research.pagesUsed
       };
     }
-  } catch (secErr) {
-    console.warn('[generateCompanyBrief] Secondary synthesis notice:', secErr);
+  } catch (secErr: any) {
+    console.warn('[generateCompanyBrief] Secondary synthesis failed:', secErr?.message || secErr);
+    primaryError = primaryError || secErr;
   }
 
-  throw new Error(`Failed to dynamically generate company brief for ${research.companyName} via AI.`);
+  // Surface why it failed. A generic message here made a missing API key and a
+  // retired model name look identical from the UI.
+  const reason = primaryError?.message ? ` ${primaryError.message}` : '';
+  throw new Error(`Could not generate the company brief for ${research.companyName}.${reason}`);
 }

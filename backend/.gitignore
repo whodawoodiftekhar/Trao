@@ -4,7 +4,8 @@ coverage/
 
 .env
 .env.*
-!*.example
+# Negation must come after the pattern it re-includes.
+!.env.example
 *.log
 .DS_Store
 Thumbs.db

@@ -32,15 +32,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const savedToken = getAuthToken();
     const savedUser = typeof window !== 'undefined' ? localStorage.getItem('trao_user') : null;
 
-    if (savedToken && savedUser) {
-      try {
-        setToken(savedToken);
-        setUser(JSON.parse(savedUser));
-      } catch {
-        clearAuthToken();
-      }
+    if (!savedToken || !savedUser) {
+      setIsLoading(false);
+      return;
     }
-    setIsLoading(false);
+
+    let cancelled = false;
+    try {
+      setToken(savedToken);
+      setUser(JSON.parse(savedUser));
+    } catch {
+      clearAuthToken();
+      setIsLoading(false);
+      return;
+    }
+
+    // Trust the stored session only until the server confirms it. Without this
+    // an expired token renders a signed-in shell where every request 401s.
+    api
+      .getMe()
+      .then((res) => {
+        if (cancelled) return;
+        setUser(res.user as User);
+        localStorage.setItem('trao_user', JSON.stringify(res.user));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        clearAuthToken();
+        setUser(null);
+        setToken(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const onExpired = () => {
+      setUser(null);
+      setToken(null);
+    };
+    window.addEventListener('trao_session_expired', onExpired);
+    return () => window.removeEventListener('trao_session_expired', onExpired);
   }, []);
 
   const login = async (email: string, password?: string) => {

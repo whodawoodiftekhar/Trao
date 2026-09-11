@@ -1,23 +1,34 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Bricolage_Grotesque, Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { QueryProvider } from "@/lib/query-provider";
 import { AppShell } from "@/components/AppShell";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Display face: carries the personality. Variable, so weight can shift with size.
+const display = Bricolage_Grotesque({
+  variable: "--font-display",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+// UI face: built for dense small text, which is most of this product.
+const sans = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "Trao — AI Interview Prep Kit",
-  description: "Transform job postings into high-yield, personalized interview preparation kits with multi-step research and deterministic coverage.",
+  description:
+    "Turn a job posting into a day-by-day interview study plan: role requirements, categorized questions, flashcards, and a schedule you can actually finish.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#17161C",
 };
 
 export default function RootLayout({
@@ -28,14 +39,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${display.variable} ${sans.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-800 font-sans text-sm">
+      <body className="min-h-full flex flex-col bg-canvas text-ink font-sans">
         <QueryProvider>
           <AuthProvider>
-            <AppShell>
-              {children}
-            </AppShell>
+            <AppShell>{children}</AppShell>
           </AuthProvider>
         </QueryProvider>
       </body>

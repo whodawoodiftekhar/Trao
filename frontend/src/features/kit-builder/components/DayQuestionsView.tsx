@@ -19,7 +19,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { UIInterviewPrepKit, UIQuestion } from '@/lib/types';
-import { KitBuilderService } from '../services/kit-builder.service';
+import { api } from '@/lib/api';
 import { cleanRoleTitle, cleanText, formatQuestionId } from '@/lib/utils';
 import { InterviewSimulator } from './InterviewSimulator';
 import { DataNotFoundState } from '@/components/DataNotFoundState';
@@ -42,7 +42,7 @@ export function DayQuestionsView({ kitId, dayNumber }: DayQuestionsViewProps) {
       setIsLoading(true);
       setError(null);
       try {
-        const found = await KitBuilderService.fetchKit(kitId);
+        const found = await api.getKit(kitId);
         if (found) {
           setKit(found);
         } else {

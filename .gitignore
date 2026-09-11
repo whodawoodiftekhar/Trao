@@ -2,6 +2,12 @@
 node_modules/
 .pnp
 .pnp.js
+.serena
+.claude
+.gitnexus
+AGENTS.md
+CLAUDE.md
+
 
 # Environment variables & secrets
 .env
