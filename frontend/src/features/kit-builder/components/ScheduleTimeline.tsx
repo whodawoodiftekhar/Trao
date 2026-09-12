@@ -69,7 +69,7 @@ export function ScheduleTimeline({
   const dayUrl = kitId && activePlan ? `/kit/${kitId}/day/${activePlan.day}` : '#';
 
   return (
-    <section className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-card hover:shadow-pop transition-all overflow-hidden max-w-full">
+    <section className="bg-white rounded-2xl border border-slate-200/90 p-3.5 sm:p-6 shadow-card hover:shadow-pop transition-all overflow-hidden max-w-full">
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div className="flex items-center gap-3.5 min-w-0">
@@ -101,18 +101,18 @@ export function ScheduleTimeline({
 
 
       {totalDays > 1 && (
-        <div className="mt-4 p-2 sm:p-2.5 rounded-xl bg-slate-50/90 border border-slate-200/80 flex items-center gap-2 min-w-0 max-w-full">
+        <div className="mt-4 p-2 sm:p-2.5 rounded-xl bg-slate-50/90 border border-slate-200/80 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 min-w-0 max-w-full">
 
           <div className="relative shrink-0 flex items-center gap-1.5 pl-0.5">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 hidden md:inline">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-500 shrink-0">
               Jump:
             </span>
-            <div className="relative">
+            <div className="relative flex-1 sm:flex-initial">
               <select
                 aria-label="Select preparation day"
                 value={activeDay}
                 onChange={(e) => handleDayChange(Number(e.target.value))}
-                className="h-8 pl-2.5 pr-7 text-xs font-bold bg-white border border-slate-200 rounded-lg text-slate-800 hover:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 cursor-pointer shadow-xs appearance-none transition-all"
+                className="w-full sm:w-auto h-8 pl-2.5 pr-7 text-xs font-bold bg-white border border-slate-200 rounded-lg text-slate-800 hover:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 cursor-pointer shadow-xs appearance-none transition-all"
               >
                 {schedule.days.map((d) => (
                   <option key={d.day} value={d.day}>
@@ -126,51 +126,50 @@ export function ScheduleTimeline({
 
           <div className="h-5 w-px bg-slate-200 shrink-0 hidden sm:block" />
 
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={() => scrollDaysTrack('left')}
+              title="Scroll days left"
+              className="h-8 w-8 inline-flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900 active:scale-95 shrink-0 transition-all shadow-xs cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
 
-          <button
-            type="button"
-            onClick={() => scrollDaysTrack('left')}
-            title="Scroll days left"
-            className="h-8 w-8 inline-flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900 active:scale-95 shrink-0 transition-all shadow-xs cursor-pointer"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
+            <div
+              ref={daysScrollRef}
+              className="flex items-center gap-1.5 overflow-x-auto scroll-smooth scrollbar-none min-w-0 flex-1 py-0.5 px-0.5"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              {schedule.days.map((d) => {
+                const isActive = d.day === activeDay;
+                return (
+                  <button
+                    key={d.day}
+                    id={`day-tab-${d.day}`}
+                    type="button"
+                    onClick={() => handleDayChange(d.day)}
+                    className={`h-8 px-3.5 text-xs font-bold rounded-lg shrink-0 transition-all cursor-pointer border whitespace-nowrap flex items-center gap-1.5 ${
+                      isActive
+                        ? 'bg-gradient-to-r from-brand-600 to-brand-700 text-white border-brand-600 shadow-sm shadow-brand-500/25 scale-[1.02]'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                    }`}
+                  >
+                    <span>Day {d.day}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-
-          <div
-            ref={daysScrollRef}
-            className="flex items-center gap-1.5 overflow-x-auto scroll-smooth scrollbar-none min-w-0 flex-1 py-0.5 px-0.5"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-          >
-            {schedule.days.map((d) => {
-              const isActive = d.day === activeDay;
-              return (
-                <button
-                  key={d.day}
-                  id={`day-tab-${d.day}`}
-                  type="button"
-                  onClick={() => handleDayChange(d.day)}
-                  className={`h-8 px-3.5 text-xs font-bold rounded-lg shrink-0 transition-all cursor-pointer border whitespace-nowrap flex items-center gap-1.5 ${
-                    isActive
-                      ? 'bg-gradient-to-r from-brand-600 to-brand-700 text-white border-brand-600 shadow-sm shadow-brand-500/25 scale-[1.02]'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
-                  }`}
-                >
-                  <span>Day {d.day}</span>
-                </button>
-              );
-            })}
+            <button
+              type="button"
+              onClick={() => scrollDaysTrack('right')}
+              title="Scroll days right"
+              className="h-8 w-8 inline-flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900 active:scale-95 shrink-0 transition-all shadow-xs cursor-pointer"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
-
-
-          <button
-            type="button"
-            onClick={() => scrollDaysTrack('right')}
-            title="Scroll days right"
-            className="h-8 w-8 inline-flex items-center justify-center rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900 active:scale-95 shrink-0 transition-all shadow-xs cursor-pointer"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
         </div>
       )}
 
@@ -180,12 +179,12 @@ export function ScheduleTimeline({
           <div className="p-4 sm:p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white shadow-card hover:shadow-pop transition-all group">
 
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3.5 border-b border-slate-200">
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-600 to-brand-700 text-white font-extrabold flex items-center justify-center text-sm shadow-sm shrink-0">
+              <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-600 to-brand-700 text-white font-extrabold flex items-center justify-center text-sm shadow-sm shrink-0 mt-0.5">
                   D{activePlan.day}
                 </div>
-                <div>
-                  <h4 className="text-base font-bold text-slate-900">
+                <div className="min-w-0 flex-1">
+                  <h4 className="text-base font-bold text-slate-900 break-words leading-snug">
                     {activePlan.focus}
                   </h4>
                   <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -259,25 +258,28 @@ export function ScheduleTimeline({
                   return (
                     <div
                       key={q.id}
-                      className="flex items-center justify-between gap-3 p-3 rounded-xl bg-white border border-slate-200 hover:border-brand-400 transition-colors shadow-xs"
+                      className="p-3 rounded-xl bg-white border border-slate-200 hover:border-brand-400 transition-colors shadow-xs"
                     >
-                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                        <span className="font-mono font-bold text-slate-700 text-xs px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 shrink-0">
-                          Q{questionNumber}.
-                        </span>
-                        <p className="font-medium text-slate-800 text-sm line-clamp-2 leading-relaxed">
-                          {q.prompt}
-                        </p>
-                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                          <span className="font-mono font-bold text-slate-700 text-xs px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 shrink-0">
+                            Q{questionNumber}.
+                          </span>
+                          <span className="text-[11px] sm:text-xs uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
+                            {q.category}
+                          </span>
+                        </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-xs uppercase font-bold tracking-wider px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                          {q.category}
-                        </span>
-                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${diffColor}`}>
+                        <span className={`text-[11px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full border shrink-0 ${diffColor}`}>
                           {diffLabel}
                         </span>
                       </div>
+
+                      {q.prompt && (
+                        <p className="mt-2 font-medium text-slate-800 text-xs sm:text-sm line-clamp-2 leading-relaxed pl-0.5">
+                          {q.prompt}
+                        </p>
+                      )}
                     </div>
                   );
                 })
